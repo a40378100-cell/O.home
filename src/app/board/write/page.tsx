@@ -126,25 +126,20 @@ function WriteInner() {
 
   const [notice, setNotice] = useState(false);
 
-  const [foldType, setFoldType] =
-    useState<FoldType | 'none'>('none');
+  // 태그 (v2.0 사용자 요청) — 쉼표로 구분해 입력, 저장할 때 배열로
+  const [tagsText, setTagsText] = useState('');
+  const parseTags = (s: string) =>
+    [...new Set(s.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean))];
 
-  const [foldLabel, setFoldLabel] =
-    useState('');
+  const [foldType, setFoldType] = useState<FoldType | 'none'>('none');
+  const [foldLabel, setFoldLabel] = useState('');
 
   /* ---------- 티켓 썸네일 ---------- */
-
-  const [thumbSrc, setThumbSrc] =
-    useState<string | undefined>(undefined);
-
-  const [thumbCrop, setThumbCrop] =
-    useState<CropValue | undefined>(undefined);
-
-  const [cropOpen, setCropOpen] =
-    useState(false);
+  const [thumbSrc, setThumbSrc] = useState<string | undefined>(undefined);
+  const [thumbCrop, setThumbCrop] = useState<CropValue | undefined>(undefined);
+  const [cropOpen, setCropOpen] = useState(false);
 
   /* ---------- 본문 이미지 ---------- */
-
   const bodyImages = useMemo(() => {
     const out: string[] = [];
 
@@ -164,60 +159,34 @@ function WriteInner() {
   }, [body]);
 
   useEffect(() => {
-    if (
-      thumbSrc &&
-      !bodyImages.includes(thumbSrc)
-    ) {
+    if (thumbSrc && !bodyImages.includes(thumbSrc)) {
       setThumbSrc(undefined);
       setThumbCrop(undefined);
     }
   }, [bodyImages, thumbSrc]);
 
   /* ---------- 파일 첨부 ---------- */
-
-  const [
-    newFiles,
-    setNewFiles,
-  ] = useState<File[]>([]);
-
-  const [
-    attachments,
-    setAttachments,
-  ] = useState<PostAttachment[]>([]);
-
-  const [
-    uploading,
-    setUploading,
-  ] = useState(false);
-
-  const fileInputRef =
-    useRef<HTMLInputElement>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<PostAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ---------- 수정 모드 ---------- */
-
   const hydrated = useRef(false);
 
   useEffect(() => {
-    if (
-      !editPid ||
-      !postsLoaded ||
-      hydrated.current
-    ) {
+    if (!editPid || !postsLoaded || hydrated.current) {
       return;
     }
 
-    const p = posts.find(
-      x => x.id === editPid,
-    );
+    const p = posts.find(x => x.id === editPid);
 
     if (!p) return;
 
     hydrated.current = true;
 
     setTitle(p.title);
-
     setBody(p.body);
-
     setWriteMode(
       p.mode === 'md'
         ? 'md'
@@ -225,35 +194,18 @@ function WriteInner() {
           ? 'editor'
           : 'html',
     );
-
     setCategory(p.category);
-
     setSecret(p.secret);
-
     setNotice(p.notice);
-
-    setFoldType(
-      p.fold?.type ?? 'none',
-    );
-
-    setFoldLabel(
-      p.fold?.label ?? '',
-    );
-
+    setFoldType(p.fold?.type ?? 'none');
+    setFoldLabel(p.fold?.label ?? '');
+    setTagsText((p.tags ?? []).join(', '));
     setThumbSrc(p.thumbSrc);
-
     setThumbCrop(p.thumbCrop);
-
-    setAttachments(
-      p.attachments ?? [],
-    );
+    setAttachments(p.attachments ?? []);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    editPid,
-    postsLoaded,
-    posts,
-  ]);
+  }, [editPid, postsLoaded, posts]);
 
   const preview = useMemo(
     () =>
@@ -391,6 +343,7 @@ function WriteInner() {
                               ? foldLabel
                               : undefined,
                         },
+                  tags: parseTags(tagsText),
                   thumbSrc,
                   thumbCrop,
                   attachments:
@@ -452,12 +405,10 @@ function WriteInner() {
 
         comments: [],
 
+        tags: parseTags(tagsText),
         boardId: board.id,
-
         thumbSrc,
-
         thumbCrop,
-
         attachments:
           nextAttachments,
       };

@@ -89,6 +89,9 @@ export interface Post {
   /** 소속 게시판 */
   boardId?: string;
 
+  /** 태그 (v2.0 사용자 요청) — 기본형 목록의 작성자 왼쪽에 나열되고 검색에 걸린다 */
+  tags?: string[];
+
   /** 티켓 스킨 대표 이미지 */
   thumbSrc?: string;
 
