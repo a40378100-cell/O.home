@@ -3,6 +3,7 @@
 // 모달이 아니라 페이지라 잘못 클릭해도 닫히지 않음. 탭 내용은 별도 편집 화면으로 전환해 작성.
 // 아트는 여러 장 — 첫 장이 대표 풀 아트이자 리스트 썸네일(3:4 크롭) 원본 (6.1)
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth';
 import { Character, CharTab, ColorChip, Visibility, CharGrant } from '@/lib/charStore';
 import { GrantsEditor } from '@/components/chars/GrantsEditor';
 import { newId } from '@/lib/postStore';
@@ -39,6 +40,7 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
   existingIds?: string[];                  // 페이지 주소 중복 검사용 (v1.9 — 신규 등록)
 }) {
   const { fonts, familyOf } = useFonts();
+  const { isAdmin } = useAuth();
   const toast = useToast();
   const isNew = !initial;
 
@@ -259,8 +261,11 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
             setView(id); // 바로 전용 편집 화면으로
           }}>＋ ADD TAB</button>
 
-        {/* 상대 캐릭터 회원 권한 — 역극 플레이 / 편집까지 (3차 회원-캐릭터 연결, v1.9) — AU 편집에선 base 소관 */}
-        {!auMode && (
+        {/* 상대 캐릭터 회원 권한 — 역극 플레이 / 편집까지 (3차 회원-캐릭터 연결, v1.9) — AU 편집에선 base 소관.
+            **관리자만** (v2.0 사용자 확정) — 편집 권한을 받은 회원이 이 화면에 들어와도
+            권한 관리는 못 한다. 열어 두면 자기가 받은 권한으로 남에게 권한을 나눠 줄 수 있다.
+            저장 시에는 기존 grants가 그대로 보존된다(이 화면에서 건드리지 않으므로). */}
+        {!auMode && isAdmin && (
           <>
             <label className="k-label" style={{ margin: '6px 0 0' }}>회원 권한 — 역극 플레이 · 캐릭터 편집</label>
             <GrantsEditor value={grants} onChange={setGrants} />
