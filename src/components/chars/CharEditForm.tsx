@@ -45,7 +45,9 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
   const isNew = !initial;
 
   const [name, setName] = useState(initial?.name ?? '');
-  const [slug, setSlug] = useState('');   // 페이지 주소 /chars/{slug} (v1.9 — 신규 등록, 비우면 자동)
+  // 페이지 주소 /chars/{slug} — 신규는 비우면 자동(id). 수정에서도 바꿀 수 있다 (v2.0 사용자 요청):
+  // id는 그대로 두고 별명(slug)만 저장하므로 참조가 끊어지지 않고 옛 주소도 계속 열린다
+  const [slug, setSlug] = useState(initial?.slug ?? '');
   const [sub, setSub] = useState(initial?.sub ?? '');
   const [color, setColor] = useState(initial?.color ?? '#5d636d');
   const [themeMode, setThemeMode] = useState<'default' | 'custom'>(initial?.themeMode ?? 'default');
@@ -83,14 +85,16 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
 
   const save = async () => {
     if (!name.trim()) { toast('이름을 입력해 주세요'); return; }
-    // 페이지 주소 (v1.9) — 유효성·중복 검사
-    if (isNew && slug) {
+    // 페이지 주소 (v1.9 / 수정도 가능 v2.0) — 유효성·중복 검사
+    if (slug && slug !== (initial?.slug ?? '')) {
       if (!isValidSlug(slug)) { toast('주소는 영문 소문자·숫자·하이픈만 쓸 수 있습니다'); return; }
       if (existingIds?.includes(slug)) { toast('이미 사용 중인 주소입니다 — 다른 주소를 입력해 주세요'); return; }
     }
     const artIds = await Promise.all(arts.map(a => (a.file ? putBlob(a.file) : Promise.resolve(a.ref!))));
     onSave({
       id: initial?.id ?? (slug || newId()),
+      // 수정에서 정한 주소는 별명으로 (v2.0) — 신규는 주소가 곧 id라 따로 남기지 않는다
+      slug: !isNew ? (slug.trim() || undefined) : undefined,
       // 입력한 그대로 저장 — 예전에는 대문자로 바꿔 저장해서 소문자 이름을 쓸 수 없었다
       name: name.trim(),
       sub: sub.trim(),
@@ -280,15 +284,17 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
           <div style={{ display: 'grid', gap: 9 }}>
             <KInput placeholder="이름" value={name} onChange={e => setName(e.target.value)}
               style={{ fontFamily: familyOf(fontId) }} />
-            {/* 페이지 주소 (v1.9) — /chars/{slug}, 비우면 자동 · 중복이면 경고 */}
-            {isNew && (
+            {/* 페이지 주소 (v1.9) — /chars/{slug}, 비우면 자동 · 중복이면 경고.
+                수정에서도 바꿀 수 있다 (v2.0 사용자 요청) — 비우면 원래 주소(id) 그대로.
+                AU 편집에서는 주소가 base 소관이라 숨긴다 */}
+            {!auMode && (
               <div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap' }}>/chars/</span>
-                  <KInput placeholder="페이지 주소 (선택)" value={slug}
+                  <KInput placeholder={isNew ? '페이지 주소 (선택)' : `페이지 주소 (비우면 ${initial?.id})`} value={slug}
                     onChange={e => setSlug(slugify(e.target.value))} style={{ flex: 1 }} />
                 </div>
-                {slug && existingIds?.includes(slug) && (
+                {slug && slug !== (initial?.slug ?? '') && existingIds?.includes(slug) && (
                   <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--accent)' }}>이미 사용 중인 주소입니다</p>
                 )}
               </div>

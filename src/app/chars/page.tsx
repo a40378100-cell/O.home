@@ -5,7 +5,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
-import { Character, CHAR_SEED } from '@/lib/charStore';
+import { Character, CHAR_SEED, charPath } from '@/lib/charStore';
 import { backend, isServerMode } from '@/lib/backend';
 import { useSectionParam, filterSection, sectionSetter, secQuery } from '@/lib/sectionStore';
 import { SearchBar, FitText } from '@/components/ui/Kit';
@@ -70,7 +70,7 @@ function CharsInner() {
           return (
             <div key={c.id} className="char-card" {...sort(i)}
               style={{ ...(priv ? { opacity: .45 } : undefined), ...sp.style }}
-              onClick={() => { if (!editOn) router.push(`/chars/${c.id}`); }}>
+              onClick={() => { if (!editOn) router.push(charPath(c)); }}>
               <div className="thumb" style={{ position: 'relative' }}>
                 <CroppedBlobImg fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass}
                   label={priv ? '비공개' : '3:4'} />
