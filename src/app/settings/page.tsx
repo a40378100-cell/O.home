@@ -2377,7 +2377,8 @@ function MenuPane() {
       <div className="d">
         자관·캐릭터처럼 목록에서 골라야 갈 수 있던 페이지를 메뉴에서 바로 — 주소를 적어 두면 됩니다.
         <br />
-        풀주소를 붙여 넣어도 <b>사이트 안 이동</b>으로 바뀝니다(예: <code>…/rels/latte</code> → <code>/rels/latte</code>).
+        <b>내 홈 주소</b>는 붙여 넣으면 사이트 안 이동으로 바뀌고(예: <code>…/rels/latte</code> → <code>/rels/latte</code>),
+        <b>다른 사이트 주소</b>는 그대로 남아 새 창으로 열립니다.
         만든 링크는 위 <b>미배치</b>에 나타나며, 거기서 원하는 상위 메뉴에 넣어 주세요.
       </div>
       {links.map(l => (
