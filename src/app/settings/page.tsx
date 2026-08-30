@@ -2357,16 +2357,29 @@ function MenuPane() {
 
       <h3 style={{ marginTop: 26 }}>미배치 기능</h3>
       <div className="d">트리에 넣지 않은 기능 — 메뉴에 노출되지 않지만 데이터는 보존됩니다. 넣을 위치를 고르면 바로 배치</div>
-      {unplaced.map(f => (
-        <div key={f.href} className="set-row">
-          <div className="l" style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-            <b style={{ fontSize: 12.5 }}>{f.label}</b>
-            <small style={{ color: 'var(--faint)', fontSize: 10.5 }}>{f.href}</small>
+      {unplaced.map(f => {
+        // 커스텀 링크는 미배치에서도 지울 수 있다 (v2.0 사용자 요청 — 「목록 자체에서 지우고 싶다」).
+        // 다른 기능(게시판·섹션 등)은 데이터가 있어 여기서 못 지운다 — 각자의 관리 화면에서
+        const link = links.find(l => l.href === f.href);
+        return (
+          <div key={f.href} className="set-row">
+            <div className="l" style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+              <b style={{ fontSize: 12.5 }}>{f.label}</b>
+              <small style={{ color: 'var(--faint)', fontSize: 10.5 }}>{f.href}</small>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <KSelect minWidth={130} value="" placeholder="배치할 위치"
+                onChange={v => placeUnplaced(f.href, v)} options={groupOptions()} />
+              {link && (
+                <button className="btn btn-ghost" style={{ padding: '3px 9px', fontSize: 10.5 }}
+                  onClick={() => del.ask(`커스텀 링크 「${link.name}」를 지우시겠습니까?`,
+                    () => setLinks(links.filter(x => x.id !== link.id)),
+                    '링크만 사라집니다 — 가리키던 페이지 자체는 그대로입니다.')}>삭제</button>
+              )}
+            </div>
           </div>
-          <KSelect minWidth={130} value="" placeholder="배치할 위치"
-            onChange={v => placeUnplaced(f.href, v)} options={groupOptions()} />
-        </div>
-      ))}
+        );
+      })}
       {unplaced.length === 0 && (
         <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--faint)' }}>모든 기능이 메뉴에 배치되어 있습니다</div>
       )}
