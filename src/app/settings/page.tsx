@@ -1933,7 +1933,11 @@ function MenuPane() {
   const saved = ms.tree ?? defaultTree();
   // 게시판 + 여러 개로 만든 섹션 — 메뉴가 아는 「추가 항목」 전체 (v2.0)
   const { map: secMap } = useSections();
-  const { links, setLinks, add: addLink } = useCustomLinks();   // 커스텀 링크 (v2.0 사용자 요청)
+  const { links, setLinks } = useCustomLinks();   // 커스텀 링크 (v2.0 사용자 요청)
+  // 새 커스텀 링크 입력 폼 (v2.0 사용자 제보 — 「주소를 적으면 이름 짓기 전에 올라간다」).
+  // 예전에는 ADD가 빈 행을 즉시 등록해, 주소를 치는 순간 미배치에 미완성 링크가 나타났다
+  const [nlName, setNlName] = useState('');
+  const [nlHref, setNlHref] = useState('');
   const extraAll = [...boardEntries(boards), ...sectionMenuEntries(secMap), ...linkEntries(links)];
   const defLabel = (href: string) => menuLabelFor(href, extraAll) ?? href;
 
@@ -2371,8 +2375,6 @@ function MenuPane() {
           만들면 위 미배치 목록에 나타나고, 거기서 원하는 상위 메뉴에 넣는다 */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 22 }}>
         <h3 style={{ margin: 0 }}>커스텀 링크</h3>
-        <button className="btn btn-ghost" style={{ padding: '4px 11px', fontSize: 10.5, marginLeft: 'auto' }}
-          onClick={addLink}>＋ ADD CUSTOM</button>
       </div>
       <div className="d">
         자관·캐릭터처럼 목록에서 골라야 갈 수 있던 페이지를 메뉴에서 바로 — 주소를 적어 두면 됩니다.
@@ -2403,8 +2405,25 @@ function MenuPane() {
         </div>
       ))}
       {links.length === 0 && (
-        <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--faint)' }}>아직 없습니다 — ＋ ADD CUSTOM으로 만들어 주세요</div>
+        <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--faint)' }}>아직 없습니다 — 아래에 이름과 주소를 적고 ADD를 눌러 주세요</div>
       )}
+      {/* 새 링크는 폼을 채워 ADD를 눌러야 등록된다 (v2.0 사용자 제보) —
+          예전에는 빈 행이 즉시 등록돼, 주소를 치는 순간 이름도 없는 링크가 미배치에 나타났다 */}
+      <div className="set-row" style={{ borderTop: '1px dashed var(--line)' }}>
+        <div className="l" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <KInput value={nlName} placeholder="메뉴에 보일 이름" onChange={e => setNlName(e.target.value)} style={{ width: 140 }} />
+          <KInput value={nlHref} placeholder="/rels/latte 또는 풀주소" onChange={e => setNlHref(e.target.value)} style={{ width: 260 }} />
+        </div>
+        <button className="btn btn-dark" style={{ padding: '4px 12px', fontSize: 10.5 }}
+          onClick={() => {
+            if (!nlName.trim()) { toast('메뉴에 보일 이름을 입력해 주세요'); return; }
+            const href = toInternalPath(nlHref);
+            if (!href || href === '/') { toast('이동할 주소를 입력해 주세요'); return; }
+            setLinks([...links, { id: newId(), name: nlName.trim(), href }]);
+            setNlName(''); setNlHref('');
+            toast('링크가 만들어졌습니다 — 위 미배치에서 메뉴에 넣어 주세요');
+          }}>＋ ADD</button>
+      </div>
       </>
       )}
 
