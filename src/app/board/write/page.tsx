@@ -34,20 +34,18 @@ import {
 } from '@/lib/boardStore';
 
 import { renderBody } from '@/lib/sanitize';
-
 import {
   KInput,
   KTextarea,
   KSelect,
   KCheck,
 } from '@/components/ui/Kit';
-
 import {
   CropEditor,
   CropImg,
   CropValue,
 } from '@/components/ui/CropEditor';
-
+import { ConfirmModal } from '@/components/ui/Modal';
 import { RichEditor } from '@/components/ui/RichEditor';
 
 import { useToast } from '@/components/ui/Toast';
@@ -70,6 +68,11 @@ function formatSize(size: number) {
 
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/** 에디터가 다루지 못해 정리될 만한 태그·속성이 있는가 — 전환 경고 판단 (인트로와 같은 기준) */
+const hasRichHtml = (html: string) =>
+  /<(table|thead|tbody|tr|td|th|div|span|section|article|video|audio|details|summary|font|center)\b/i.test(html)
+  || /\s(style|class|id)\s*=/i.test(html);
 
 function WriteInner() {
   const router = useRouter();
@@ -112,7 +115,9 @@ function WriteInner() {
     useState<'editor' | 'md' | 'html'>('editor');
 
   const [body, setBody] = useState('');
-
+  // HTML 모드 안의 보기 (v2.0 사용자 요청) — 코드 그대로 / 미리보기에서 바로 편집
+  const [htmlView, setHtmlView] = useState<'code' | 'preview'>('code');
+  const [askRich, setAskRich] = useState<null | (() => void)>(null);   // 정리 경고 후 실행할 전환
   const [category, setCategory] = useState('');
 
   React.useEffect(() => {
@@ -496,50 +501,59 @@ function WriteInner() {
             </label>
 
             <div className="mini-seg">
+              {/* HTML로 쓴 글을 에디터로 열면 다루지 못하는 태그가 정리된다 — 되돌릴 수 없어 물어본다 (v2.0) */}
               <button
-                className={
-                  writeMode === 'editor'
-                    ? 'on'
-                    : ''
-                }
-                onClick={() =>
-                  setWriteMode(
-                    'editor',
-                  )
-                }
+                className={writeMode === 'editor' ? 'on' : ''}
+                onClick={() => {
+                  if (writeMode === 'html' && hasRichHtml(body)) {
+                    setAskRich(() => () => setWriteMode('editor'));
+                    return;
+                  }
+                  setWriteMode('editor');
+                }}
               >
                 에디터
               </button>
 
               <button
-                className={
-                  writeMode === 'md'
-                    ? 'on'
-                    : ''
-                }
-                onClick={() =>
-                  setWriteMode('md')
-                }
+                className={writeMode === 'md' ? 'on' : ''}
+                onClick={() => {
+                  setWriteMode('md');
+                  setHtmlView('code');
+                }}
               >
                 Markdown
               </button>
 
               <button
-                className={
-                  writeMode === 'html'
-                    ? 'on'
-                    : ''
-                }
-                onClick={() =>
-                  setWriteMode('html')
-                }
+                className={writeMode === 'html' ? 'on' : ''}
+                onClick={() => setWriteMode('html')}
               >
                 HTML
               </button>
             </div>
+            {/* HTML 모드 안 보기 전환 (v2.0 사용자 요청) — 코드 그대로 / 미리보기에서 바로 편집 */}
+            {writeMode === 'html' && (
+              <div className="mini-seg">
+                <button className={htmlView === 'code' ? 'on' : ''} onClick={() => setHtmlView('code')}>코드</button>
+                <button
+                  className={htmlView === 'preview' ? 'on' : ''}
+                  onClick={() => {
+                    if (htmlView === 'preview') return;
+                    if (hasRichHtml(body)) {
+                      setAskRich(() => () => setHtmlView('preview'));
+                      return;
+                    }
+                    setHtmlView('preview');
+                  }}
+                >
+                  미리보기 (편집 가능)
+                </button>
+              </div>
+            )}
           </div>
 
-          {writeMode === 'editor' ? (
+          {writeMode === 'editor' || (writeMode === 'html' && htmlView === 'preview') ? (
             <RichEditor
               value={body}
               onChange={setBody}
@@ -1054,23 +1068,29 @@ function WriteInner() {
         </div>
       </div>
 
-      {/* 대표 썸네일 위치 지정 */}
-      {cropOpen &&
-        thumbSrc && (
-          <CropEditor
-            open
-            src={thumbSrc}
-            aspect="16:9"
-            initial={thumbCrop}
-            onClose={() =>
-              setCropOpen(false)
-            }
-            onApply={c => {
-              setThumbCrop(c);
-              setCropOpen(false);
-            }}
-          />
-        )}
+      {/* HTML → 에디터/편집 미리보기 전환 경고 (v2.0) — 다루지 못하는 태그는 편집 순간 정리된다 */}
+      <ConfirmModal
+        open={askRich !== null}
+        title="여기서 편집하면 일부 태그가 정리됩니다"
+        body="에디터는 굵게·목록·제목·이미지 같은 기본 서식만 다룹니다. 표·div·style·class 등은 편집하는 순간 정리되며 되돌릴 수 없습니다. HTML을 그대로 두려면 취소하세요."
+        onClose={() => setAskRich(null)}
+        buttons={[
+          { label: 'CANCEL', kind: 'ghost', onClick: () => setAskRich(null) },
+          { label: '계속', kind: 'accent', onClick: () => { askRich?.(); setAskRich(null); } },
+        ]}
+      />
+
+      {/* 대표 썸네일 위치 지정 — 16:9 (티켓 스킨) */}
+      {cropOpen && thumbSrc && (
+        <CropEditor
+          open
+          src={thumbSrc}
+          aspect="16:9"
+          initial={thumbCrop}
+          onClose={() => setCropOpen(false)}
+          onApply={c => { setThumbCrop(c); setCropOpen(false); }}
+        />
+      )}
     </section>
   );
 }
