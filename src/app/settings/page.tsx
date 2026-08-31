@@ -29,7 +29,7 @@ import {
 } from '@/lib/menuStore';
 import { FEATURES } from '@/lib/menu';
 import { SectionsBlock } from '@/components/settings/SectionList';
-import { useSections, sectionMenuEntries, MAIN_SEC, inSection } from '@/lib/sectionStore';
+import { useSections, sectionsOf, sectionMenuEntries, MAIN_SEC, inSection } from '@/lib/sectionStore';
 import { useCustomLinks, linkEntries, toInternalPath } from '@/lib/linkStore';
 import { useSiteDraft } from '@/lib/siteStore';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1919,8 +1919,9 @@ function DataPane() {
 
 /** 멤버 선택 모달 (v2.0 사용자 요청) — 「비로그인 숨김」 메뉴를 특정 회원에게만.
  *  검색으로 걸러 체크하고, 비우면 지금까지처럼 로그인한 모든 회원. 관리자는 항상 볼 수 있어 목록에 없다 */
-function MemberPickModal({ initial, onApply, onClose }: {
+function MemberPickModal({ initial, onApply, onClose, desc }: {
   initial: string[]; onApply: (ids: string[]) => void; onClose: () => void;
+  desc?: string;   // 무엇에 대한 선택인지 — 노출 제한/글쓰기 권한이 같은 모달을 쓴다 (v2.0)
 }) {
   const pool = useMembers().filter(p => p.id !== 'admin' && p.role !== 'admin');
   const [q, setQ] = useState('');
@@ -1929,7 +1930,7 @@ function MemberPickModal({ initial, onApply, onClose }: {
   const list = pool.filter(p => !t || p.nickname.toLowerCase().includes(t) || p.id.toLowerCase().includes(t));
   return (
     <Modal open small title="멤버 선택" onClose={onClose}
-      desc="체크한 회원(그리고 관리자)에게만 이 메뉴가 보이고 열립니다 — 비우면 로그인한 모든 회원"
+      desc={desc ?? '체크한 회원(그리고 관리자)에게만 이 메뉴가 보이고 열립니다 — 비우면 로그인한 모든 회원'}
       actions={<>
         <button className="btn btn-ghost" onClick={onClose}>CANCEL</button>
         <button className="btn btn-accent" onClick={() => { onApply(sel); onClose(); }}>적용</button>
@@ -1969,8 +1970,8 @@ function MenuPane() {
   // 「주소로는 열람 허용」을 켤 때 띄우는 확인 (v2.0 사용자 요청)
   const [openAsk, setOpenAsk] = useState<(() => void) | null>(null);
   const [visAsk, setVisAsk] = useState(false);
-  // 멤버 선택 모달 (v2.0 사용자 요청) — 「비로그인 숨김」을 특정 회원으로 좁힌다
-  const [memAsk, setMemAsk] = useState<{ ids: string[]; apply: (ids: string[]) => void } | null>(null);
+  // 멤버 선택 모달 (v2.0 사용자 요청) — 「비로그인 숨김」·갤러리 글쓰기를 특정 회원으로 좁힌다
+  const [memAsk, setMemAsk] = useState<{ ids: string[]; apply: (ids: string[]) => void; desc?: string } | null>(null);
   const [commSet, patchComm] = useCommSettings();
   const { boards, loaded: bLoaded, patchBoard } = useBoards();  // 추가 게시판 이름·자동 편입 동기화 + 권한
   const toast = useToast();
@@ -2198,6 +2199,44 @@ function MenuPane() {
         </>
       );
     }
+    // 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 갤러리(섹션)마다 · 「글쓰기 멤버」로 특정 회원까지
+    if (href === '/gallery' || href.startsWith('/gallery?s=')) {
+      const key = href === '/gallery' ? MAIN_SEC : href.slice('/gallery?s='.length);
+      // 메뉴 주소에는 별명(slug)이 적혀 있을 수 있다 — id로 통일해 저장
+      const gsec = sectionsOf(secMap, 'gallery').find(s2 => s2.id === key || s2.slug === key);
+      if (!gsec) return null;
+      const gw = ms.galWrite?.[gsec.id] ?? 'member';
+      const gwIds = ms.galWriteMembers?.[gsec.id];
+      return (
+        <>
+          {gw === 'member' && (
+            <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 10.5 }}
+              onClick={() => setMemAsk({
+                ids: gwIds ?? [],
+                desc: '체크한 회원(그리고 관리자)만 이 갤러리에 글을 쓸 수 있습니다 — 비우면 로그인한 모든 회원',
+                apply: n => {
+                  const next = { ...ms.galWriteMembers };
+                  if (n.length) next[gsec.id] = n; else delete next[gsec.id];
+                  patch({ galWriteMembers: next });
+                },
+              })}>
+              {gwIds?.length ? `글쓰기 멤버 ${gwIds.length}명` : '글쓰기 멤버'}
+            </button>
+          )}
+          <KSelect minWidth={110} value={gw}
+            onChange={v => {
+              // 관리자 전용으로 바꾸면 멤버 선택은 함께 지운다 — 몰래 남아 있지 않게 (노출 제한과 같은 규칙)
+              const next = { ...ms.galWriteMembers };
+              if (v !== 'member') delete next[gsec.id];
+              patch({ galWrite: { ...ms.galWrite, [gsec.id]: v as MenuPerm }, galWriteMembers: next });
+            }}
+            options={[
+              { value: 'member', label: '글쓰기: 가입자' },
+              { value: 'admin', label: '글쓰기: 관리자' },
+            ]} />
+        </>
+      );
+    }
     return null;
   };
 
@@ -2324,7 +2363,8 @@ function MenuPane() {
           </div>
           {/* 멤버 선택 (v2.0 사용자 요청) — 검색으로 골라 그 회원(+관리자)에게만 */}
           {memAsk && (
-            <MemberPickModal initial={memAsk.ids} onApply={memAsk.apply} onClose={() => setMemAsk(null)} />
+            <MemberPickModal initial={memAsk.ids} onApply={memAsk.apply} desc={memAsk.desc}
+              onClose={() => setMemAsk(null)} />
           )}
 
           {/* 「주소로는 열람 허용」 확인 (v2.0 사용자 요청) — 켜는 순간 무엇이 열리는지 분명히 */}

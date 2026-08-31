@@ -34,6 +34,10 @@ export interface MenuSettings {
   roadUpload: MenuPerm;              // 로드뷰 업로드 권한 (4.10 v1.7)
   roadComment: MenuPerm;             // 로드뷰 댓글 권한
   backupView: 'gal' | 'list';        // 갤러리(그림백업) 기본 보기 (5.2)
+  /** 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 섹션 id별 · 미지정은 'member'(로그인한 모든 회원) */
+  galWrite?: Record<string, MenuPerm>;
+  /** 갤러리 글쓰기를 특정 회원으로 좁히기 (v2.0) — 'member'일 때만 의미 · 비우면 모든 회원 */
+  galWriteMembers?: Record<string, string[]>;
   calTitle: 'en' | 'num';            // 스케줄러 달 표기 (v1.9) — AUGUST 2026 / 2026.08
   imgProtect: ImgProtectArea[];      // 이미지 저장 방지 영역 (v1.9 — 우클릭·드래그 차단, 관리자 제외)
 }
@@ -289,6 +293,16 @@ const allows = (v: MenuVis, viewer: MenuViewer, members?: string[]) =>
   || (v === 'member' && viewer.loggedIn
     && (!members?.length || viewer.isAdmin || (!!viewer.id && members.includes(viewer.id))))
   || (v === 'admin' && viewer.isAdmin);
+
+/** 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 섹션별. 미지정은 로그인한 모든 회원,
+ *  「멤버 선택」으로 좁혔으면 그 회원(+관리자)만. WRITE 버튼과 작성 페이지가 같이 쓴다 */
+export function canGalleryWrite(s: MenuSettings, secId: string, viewer: MenuViewer): boolean {
+  if (!viewer.loggedIn) return false;
+  if (viewer.isAdmin) return true;
+  if ((s.galWrite?.[secId] ?? 'member') === 'admin') return false;
+  const members = s.galWriteMembers?.[secId];
+  return !members?.length || (!!viewer.id && members.includes(viewer.id));
+}
 
 /** 이 방문자에게 **드러내도 되는가** (v2.0) — 메뉴·위젯이 쓴다.
  *  「주소로는 열람 허용」이어도 여기서는 감춘다 — 링크로만 돌리려는 것이지 알리려는 게 아니다 */
