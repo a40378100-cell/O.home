@@ -149,7 +149,11 @@ function MiniProf({ member, char, isAdmin, onGo, onRemove, auUnregistered, side,
         <div>
           {/* 이름 폰트는 캐릭터 프로필에서 지정한 것을 그대로 쓰고,
               크기는 이 자관에서 정한 값 (자관 수정의 「이름 크기」 — 기본 17px, v2.0) */}
-          <b style={{ fontFamily: familyOf(char.fontId), fontSize: member.nameSize ?? undefined }}>
+          <b style={{
+            fontFamily: familyOf(char.fontId), fontSize: member.nameSize ?? undefined,
+            // 굵기는 끌 수 있다 (v2.0 사용자 요청) — 기본은 지금처럼 굵게(<b>)
+            fontWeight: (member.nameBold ?? true) ? undefined : 400,
+          }}>
             {char.name}
           </b>
           <small>{[char.sub, noteOf(member)].filter(Boolean).join(' · ')}</small>
